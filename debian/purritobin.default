@@ -1,0 +1,12 @@
+# PurritoBin configuration
+# See man purrito(1) for all options
+
+# IMPORTANT: change the domain before starting!
+# -d  domain (required, with trailing slash)
+# -s  paste storage directory
+# -z  database directory
+# -i  IP to listen on
+# -p  port
+# -t  enable HTTP GET server (to serve pastes)
+
+PURRITO_OPTS="-d http://localhost:42069/ -s /var/lib/purrito/storage -z /var/lib/purrito/db -i 127.0.0.1 -p 42069 -t"
