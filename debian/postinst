@@ -1,0 +1,26 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        if ! getent group purrito >/dev/null; then
+            addgroup --quiet --system purrito
+        fi
+
+        if ! getent passwd purrito >/dev/null; then
+            adduser --quiet --system \
+                --ingroup purrito \
+                --home /var/lib/purrito \
+                --no-create-home \
+                --gecos "PurritoBin daemon" \
+                purrito
+        fi
+
+        install -d -o purrito -g purrito -m 0755 /var/lib/purrito
+        install -d -o purrito -g purrito -m 0755 /var/lib/purrito/storage
+        install -d -o purrito -g purrito -m 0700 /var/lib/purrito/db
+        ;;
+esac
+
+#DEBHELPER#
+exit 0

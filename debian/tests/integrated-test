@@ -1,0 +1,146 @@
+#!/bin/bash
+set -e
+
+echo "=== Running upstream tests on installed package ==="
+echo "Timestamp: $(date)"
+echo "Hostname: $(hostname)"
+echo ""
+
+# Fallback для ручного запуска (не через autopkgtest)
+if [ -z "$AUTOPKGTEST_TMP" ]; then
+    echo "Warning: AUTOPKGTEST_TMP not set, using /tmp"
+    AUTOPKGTEST_TMP=$(mktemp -d)
+    MANUAL_CLEANUP=1
+fi
+
+if [ -z "$AUTOPKGTEST_SOURCE" ]; then
+    echo "Warning: AUTOPKGTEST_SOURCE not set, detecting..."
+    if [ -d "$(pwd)/../../tests" ]; then
+        AUTOPKGTEST_SOURCE="$(pwd)/../.."
+    elif [ -d "$(pwd)/tests" ]; then
+        AUTOPKGTEST_SOURCE="$(pwd)"
+    else
+        echo "ERROR: Cannot find source directory with tests/"
+        echo "Please run from repository root or set AUTOPKGTEST_SOURCE"
+        exit 1
+    fi
+fi
+
+cd "$AUTOPKGTEST_TMP"
+
+export PURRITO=/usr/bin/purrito
+export SHUF=shuf
+export SEQ=seq
+
+echo "Environment setup:"
+echo "  PURRITO=$PURRITO"
+echo "  AUTOPKGTEST_TMP=$AUTOPKGTEST_TMP"
+echo "  AUTOPKGTEST_SOURCE=$AUTOPKGTEST_SOURCE"
+echo ""
+
+# SSL сертификаты
+echo "[1/4] Generating SSL certificates..."
+
+if [ ! -f "$AUTOPKGTEST_SOURCE/tests/PB.conf" ]; then
+    echo "ERROR: tests/PB.conf not found at $AUTOPKGTEST_SOURCE/tests/PB.conf"
+    [ -n "$MANUAL_CLEANUP" ] && rm -rf "$AUTOPKGTEST_TMP"
+    exit 1
+fi
+
+# Генерировать с правильным конфигом (подавить verbose вывод)
+if ! openssl req -x509 -out "$AUTOPKGTEST_TMP/PB.crt" \
+    -keyout "$AUTOPKGTEST_TMP/PB.key" \
+    -newkey rsa:2048 -nodes -sha256 \
+    -subj '/CN=localhost' \
+    -extensions EXT \
+    -config "$AUTOPKGTEST_SOURCE/tests/PB.conf" 2>/dev/null; then
+    echo "ERROR: Failed to generate SSL certificates"
+    [ -n "$MANUAL_CLEANUP" ] && rm -rf "$AUTOPKGTEST_TMP"
+    exit 1
+fi
+
+echo "  ✓ Certificates generated"
+echo "    Certificate: $AUTOPKGTEST_TMP/PB.crt"
+echo "    Key: $AUTOPKGTEST_TMP/PB.key"
+echo ""
+
+export P_KEY="$AUTOPKGTEST_TMP/PB.key"
+export P_CRT="$AUTOPKGTEST_TMP/PB.crt"
+
+# Перейти в директорию с тестами
+if [ ! -d "$AUTOPKGTEST_SOURCE/tests" ]; then
+    echo "ERROR: Tests directory not found: $AUTOPKGTEST_SOURCE/tests"
+    [ -n "$MANUAL_CLEANUP" ] && rm -rf "$AUTOPKGTEST_TMP"
+    exit 1
+fi
+
+cd "$AUTOPKGTEST_SOURCE/tests"
+echo "Changed to test directory: $(pwd)"
+echo ""
+
+# Счётчики
+TOTAL=3
+CURRENT=0
+PASSED=0
+
+# Тесты
+TESTS="
+test_nossl_single_paste.sh
+test_nossl_getpaste.sh
+test_ssl_single_paste.sh
+"
+
+for test in $TESTS; do
+    CURRENT=$((CURRENT+1))
+    
+    if [ ! -f "$test" ]; then
+        echo "ERROR: Test file not found: $test"
+        [ -n "$MANUAL_CLEANUP" ] && rm -rf "$AUTOPKGTEST_TMP"
+        exit 1
+    fi
+    
+    echo ""
+    echo "=========================================="
+    echo "[$CURRENT/$TOTAL] Running: $test"
+    echo "=========================================="
+    echo ""
+    
+    START=$(date +%s)
+    
+    if bash "$test" 2>&1; then
+        END=$(date +%s)
+        DURATION=$((END - START))
+        PASSED=$((PASSED+1))
+        echo ""
+        echo "✓ PASSED: $test (${DURATION}s)"
+    else
+        EXIT_CODE=$?
+        END=$(date +%s)
+        DURATION=$((END - START))
+        echo ""
+        echo "✗ FAILED: $test (${DURATION}s)"
+        echo "   Exit code: $EXIT_CODE"
+        echo ""
+        echo "=== FAILURE SUMMARY ==="
+        echo "Failed test: $test"
+        echo "Tests passed: $PASSED/$CURRENT"
+        
+        [ -n "$MANUAL_CLEANUP" ] && rm -rf "$AUTOPKGTEST_TMP"
+        
+        exit 1
+    fi
+done
+
+echo ""
+echo "=========================================="
+echo "=== ALL TESTS PASSED ($PASSED/$TOTAL) ==="
+echo "=========================================="
+
+# Cleanup если запущено вручную
+if [ -n "$MANUAL_CLEANUP" ]; then
+    echo ""
+    echo "Cleaning up temporary directory: $AUTOPKGTEST_TMP"
+    rm -rf "$AUTOPKGTEST_TMP"
+fi
+
+exit 0

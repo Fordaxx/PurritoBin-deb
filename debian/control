@@ -1,0 +1,29 @@
+Source: purritobin
+Section: web
+Priority: optional
+Maintainer: Timur Dautov <roomityt@yandex.ru>
+Build-Depends: debhelper-compat (= 13),
+               meson,
+               ninja-build,
+               pkg-config,
+               libssl-dev,
+               liblmdb-dev,
+               liblmdbxx-dev,
+               libusockets-dev,
+               libuwebsockets-dev
+Standards-Version: 4.7.3.0
+Homepage: https://github.com/PurritoBin/PurritoBin
+Rules-Requires-Root: no
+
+Package: purritobin
+Architecture: any
+Pre-Depends: adduser
+Depends: ${shlibs:Depends},
+         ${misc:Depends}
+Description: ultra fast, minimalistic, encrypted command line paste-bin
+ PurritoBin is a very lightweight pastebin server (2-3 MB RAM).
+ Features include configurable paste size limits, auto-cleaning,
+ encrypted pasting, and optional HTTPS support.
+
+
+

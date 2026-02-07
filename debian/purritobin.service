@@ -1,0 +1,26 @@
+[Unit]
+Description=PurritoBin - minimalistic encrypted pastebin
+Documentation=man:purrito(1)
+After=network.target
+
+[Service]
+Type=simple
+User=purrito
+Group=purrito
+WorkingDirectory=/var/lib/purrito
+
+EnvironmentFile=-/etc/default/purritobin
+ExecStart=/usr/bin/purrito $PURRITO_OPTS
+
+Restart=on-failure
+RestartSec=10
+
+# Hardening
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+ReadWritePaths=/var/lib/purrito
+
+[Install]
+WantedBy=multi-user.target
