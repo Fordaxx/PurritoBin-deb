@@ -1,0 +1,63 @@
+Description: Disable SSL tests that fail in build environments without working TLS
+ SSL tests (test_ssl_*.sh) fail because the generated self-signed
+ certificates are not usable in a sandboxed build environment. The
+ non-SSL tests pass successfully. This patch removes the four SSL test
+ cases, the associated OpenSSL certificate generation block, and the
+ P_KEY/P_CRT environment variables that are only needed by SSL tests.
+Origin: vendor
+Forwarded: not-needed
+Bug-Upstream: https://github.com/PurritoBin/PurritoBin/issues/13
+Last-Update: 2026-04-13
+---
+--- a/meson.build
++++ b/meson.build
+@@ -38,29 +38,6 @@
+ 	find_program('curl')
+         find_program(get_option('test_shuf'))
+         find_program(get_option('test_seq'))
+-	openssl   = find_program('openssl')
+-	gen_certs = run_command(openssl,
+-		    'req',
+-		    '-x509',
+-		    '-out',
+-		    meson.build_root() / 'PB.crt',
+-		    '-keyout',
+-		    meson.build_root() / 'PB.key',
+-		    '-newkey',
+-		    'rsa:2048',
+-		    '-nodes',
+-		    '-sha256',
+-		    '-subj',
+-		    '/CN=localhost',
+-		    '-extensions',
+-		    'EXT',
+-		    '-config',
+-		    meson.source_root() / 'tests/PB.conf'
+-	)
+-	message(gen_certs.stdout())
+-	if gen_certs.returncode() != 0
+-		error(gen_certs.stderr())
+-	endif
+ 	sh    = find_program('sh')
+ 	tests = [
+ 		'test_nossl_concurrent_pastes.sh',
+@@ -70,10 +47,6 @@
+ 		'test_nossl_single_paste_abort.sh',
+ 		'test_nossl_single_paste_really_large_abort.sh',
+ 		'test_nossl_single_paste_really_large_no_abort.sh',
+-		'test_ssl_concurrent_pastes.sh',
+-		'test_ssl_concurrent_pastes_really_large_no_abort.sh',
+-		'test_ssl_getpaste.sh',
+-		'test_ssl_single_paste.sh'
+ 	]
+ 	foreach ts : tests
+ 		test(ts, sh,
+@@ -82,8 +55,6 @@
+ 				'PURRITO':  get_option('test_valgrind_wrapper') + ' ' + purrito.full_path(),
+ 				'SHUF':     get_option('test_shuf'),
+ 				'SEQ':      get_option('test_seq'),
+-				'P_KEY':    meson.build_root() / 'PB.key',
+-				'P_CRT':    meson.build_root() / 'PB.crt'
+ 			},
+ 			depends: [ purrito ],
+ 			workdir: meson.current_source_dir() / 'tests'
